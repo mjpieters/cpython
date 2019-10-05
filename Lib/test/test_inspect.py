@@ -167,12 +167,33 @@ class TestPredicates(IsTestBase):
         gen_coro = gen_coroutine_function_example(1)
         coro = coroutine_function_example(1)
 
+        class PMClass:
+            async_generator_partialmethod_example = functools.partialmethod(
+                async_generator_function_example)
+            coroutine_partialmethod_example = functools.partialmethod(
+                coroutine_function_example)
+            gen_coroutine_partialmethod_example = functools.partialmethod(
+                gen_coroutine_function_example)
+
+        # partialmethods on the class, bound to an instance
+        pm_instance = PMClass()
+        async_gen_coro_pmi = pm_instance.async_generator_partialmethod_example
+        gen_coro_pmi = pm_instance.gen_coroutine_partialmethod_example
+        coro_pmi = pm_instance.coroutine_partialmethod_example
+
+        # partialmethods on the class, unbound but accessed via the class
+        async_gen_coro_pmc = PMClass.async_generator_partialmethod_example
+        gen_coro_pmc = PMClass.gen_coroutine_partialmethod_example
+        coro_pmc = PMClass.coroutine_partialmethod_example
+
         self.assertFalse(
             inspect.iscoroutinefunction(gen_coroutine_function_example))
         self.assertFalse(
             inspect.iscoroutinefunction(
                 functools.partial(functools.partial(
                     gen_coroutine_function_example))))
+        self.assertFalse(inspect.iscoroutinefunction(gen_coro_pmi))
+        self.assertFalse(inspect.iscoroutinefunction(gen_coro_pmc))
         self.assertFalse(inspect.iscoroutine(gen_coro))
 
         self.assertTrue(
@@ -181,6 +202,8 @@ class TestPredicates(IsTestBase):
             inspect.isgeneratorfunction(
                 functools.partial(functools.partial(
                     gen_coroutine_function_example))))
+        self.assertTrue(inspect.isgeneratorfunction(gen_coro_pmi))
+        self.assertTrue(inspect.isgeneratorfunction(gen_coro_pmc))
         self.assertTrue(inspect.isgenerator(gen_coro))
 
         self.assertTrue(
@@ -189,6 +212,8 @@ class TestPredicates(IsTestBase):
             inspect.iscoroutinefunction(
                 functools.partial(functools.partial(
                     coroutine_function_example))))
+        self.assertTrue(inspect.iscoroutinefunction(coro_pmi))
+        self.assertTrue(inspect.iscoroutinefunction(coro_pmc))
         self.assertTrue(inspect.iscoroutine(coro))
 
         self.assertFalse(
@@ -197,6 +222,8 @@ class TestPredicates(IsTestBase):
             inspect.isgeneratorfunction(
                 functools.partial(functools.partial(
                     coroutine_function_example))))
+        self.assertFalse(inspect.isgeneratorfunction(coro_pmi))
+        self.assertFalse(inspect.isgeneratorfunction(coro_pmc))
         self.assertFalse(inspect.isgenerator(coro))
 
         self.assertTrue(
@@ -205,6 +232,8 @@ class TestPredicates(IsTestBase):
             inspect.isasyncgenfunction(
                 functools.partial(functools.partial(
                     async_generator_function_example))))
+        self.assertTrue(inspect.isasyncgenfunction(async_gen_coro_pmi))
+        self.assertTrue(inspect.isasyncgenfunction(async_gen_coro_pmc))
         self.assertTrue(inspect.isasyncgen(async_gen_coro))
 
         coro.close(); gen_coro.close(); # silence warnings

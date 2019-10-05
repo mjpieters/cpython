@@ -413,6 +413,17 @@ def _unwrap_partial(func):
         func = func.func
     return func
 
+def _unwrap_partialmethod(func):
+    prev = None
+    while func is not prev:
+        prev = func
+        while hasattr(func, "_partialmethod"):
+            func = getattr(func, '_partialmethod')
+        while isinstance(func, partialmethod):
+            func = getattr(func, 'func')
+        func = _unwrap_partial(func)
+    return func
+
 ################################################################################
 ### LRU Cache function decorator
 ################################################################################
