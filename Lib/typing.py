@@ -1234,7 +1234,11 @@ def get_type_hints(obj, globalns=None, localns=None):
         if isinstance(obj, types.ModuleType):
             globalns = obj.__dict__
         else:
-            globalns = getattr(obj, '__globals__', {})
+            nsobj = obj
+            # Find globalns for the unwrapped object.
+            while hasattr(nsobj, '__wrapped__'):
+                nsobj = nsobj.__wrapped__
+            globalns = getattr(nsobj, '__globals__', {})
         if localns is None:
             localns = globalns
     elif localns is None:
@@ -1513,6 +1517,7 @@ Type.__doc__ = \
 
 @runtime_checkable
 class SupportsInt(Protocol):
+    """An ABC with one abstract method __int__."""
     __slots__ = ()
 
     @abstractmethod
@@ -1522,6 +1527,7 @@ class SupportsInt(Protocol):
 
 @runtime_checkable
 class SupportsFloat(Protocol):
+    """An ABC with one abstract method __float__."""
     __slots__ = ()
 
     @abstractmethod
@@ -1531,6 +1537,7 @@ class SupportsFloat(Protocol):
 
 @runtime_checkable
 class SupportsComplex(Protocol):
+    """An ABC with one abstract method __complex__."""
     __slots__ = ()
 
     @abstractmethod
@@ -1540,6 +1547,7 @@ class SupportsComplex(Protocol):
 
 @runtime_checkable
 class SupportsBytes(Protocol):
+    """An ABC with one abstract method __bytes__."""
     __slots__ = ()
 
     @abstractmethod
@@ -1549,6 +1557,7 @@ class SupportsBytes(Protocol):
 
 @runtime_checkable
 class SupportsIndex(Protocol):
+    """An ABC with one abstract method __index__."""
     __slots__ = ()
 
     @abstractmethod
@@ -1558,6 +1567,7 @@ class SupportsIndex(Protocol):
 
 @runtime_checkable
 class SupportsAbs(Protocol[T_co]):
+    """An ABC with one abstract method __abs__ that is covariant in its return type."""
     __slots__ = ()
 
     @abstractmethod
@@ -1567,6 +1577,7 @@ class SupportsAbs(Protocol[T_co]):
 
 @runtime_checkable
 class SupportsRound(Protocol[T_co]):
+    """An ABC with one abstract method __round__ that is covariant in its return type."""
     __slots__ = ()
 
     @abstractmethod
@@ -1593,7 +1604,7 @@ _prohibited = ('__new__', '__init__', '__slots__', '__getnewargs__',
                '_fields', '_field_defaults', '_field_types',
                '_make', '_replace', '_asdict', '_source')
 
-_special = ('__module__', '__name__', '__qualname__', '__annotations__')
+_special = ('__module__', '__name__', '__annotations__')
 
 
 class NamedTupleMeta(type):
@@ -1704,9 +1715,20 @@ class _TypedDictMeta(type):
         anns = ns.get('__annotations__', {})
         msg = "TypedDict('Name', {f0: t0, f1: t1, ...}); each t must be a type"
         anns = {n: _type_check(tp, msg) for n, tp in anns.items()}
+        required = set(anns if total else ())
+        optional = set(() if total else anns)
+
         for base in bases:
-            anns.update(base.__dict__.get('__annotations__', {}))
+            base_anns = base.__dict__.get('__annotations__', {})
+            anns.update(base_anns)
+            if getattr(base, '__total__', True):
+                required.update(base_anns)
+            else:
+                optional.update(base_anns)
+
         tp_dict.__annotations__ = anns
+        tp_dict.__required_keys__ = frozenset(required)
+        tp_dict.__optional_keys__ = frozenset(optional)
         if not hasattr(tp_dict, '__total__'):
             tp_dict.__total__ = total
         return tp_dict
@@ -1733,8 +1755,9 @@ class TypedDict(dict, metaclass=_TypedDictMeta):
 
         assert Point2D(x=1, y=2, label='first') == dict(x=1, y=2, label='first')
 
-    The type info can be accessed via Point2D.__annotations__. TypedDict
-    supports two additional equivalent forms::
+    The type info can be accessed via the Point2D.__annotations__ dict, and
+    the Point2D.__required_keys__ and Point2D.__optional_keys__ frozensets.
+    TypedDict supports two additional equivalent forms::
 
         Point2D = TypedDict('Point2D', x=int, y=int, label=str)
         Point2D = TypedDict('Point2D', {'x': int, 'y': int, 'label': str})
